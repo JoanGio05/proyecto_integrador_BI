@@ -515,7 +515,8 @@ def cargar(carpeta_datos):
     for nombre, archivos in materias.items():
         materia = a_snake(nombre)  # "Álgebra" -> "algebra"
         reporte.append(f"[{nombre}] -> materia '{materia}'")
-        fila_materia = {"materia": materia, "nombre": nombre}
+        # nombre_materia y no "nombre": al cruzar las dimensiones se pisaría con el nombre del alumno.
+        fila_materia = {"materia": materia, "nombre_materia": nombre}
 
         # Avisa si a una materia le falta algún tipo de archivo.
         for tipo in PREFIJOS.values():
@@ -661,7 +662,8 @@ def armar_estrella(modelo, materia, avisos):
     # --- aula: una fila por aula del campus. El año sale del final del nombre.
     pares = pd.concat([t[["materia", "aula"]] for t in (traza, partic, califs)]).drop_duplicates()
     aula = dimension(pares, ["aula"], "id_aula")
-    aula["anio"] = pd.to_numeric(aula["aula"].str.extract(r"(20\d{2})\s*$")[0]).astype("Int64")
+    # anio_aula y no "anio": la tabla fecha ya tiene una columna con ese nombre.
+    aula["anio_aula"] = pd.to_numeric(aula["aula"].str.extract(r"(20\d{2})\s*$")[0]).astype("Int64")
 
     # A cada hecho se le busca la clave de su materia y la de su aula. Son un paso
     # intermedio: más abajo se cambian por una sola clave, id_materia_aula.

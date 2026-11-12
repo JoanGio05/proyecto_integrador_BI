@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard_ficha360 import render_dashboard_ficha360
+from dashboard_matricula import render_dashboard_matricula
 from dashboard_rendimiento import render_dashboard_rendimiento
 from evaluador_condiciones import (
     calcular_condiciones_estudiantes,
@@ -27,10 +28,13 @@ for alerta in alertas:
 st.sidebar.title("Navegación")
 vista_sel = st.sidebar.radio(
     "Seleccionar Vista",
-    ["Dashboard 4: Rendimiento", "Dashboard 6: Ficha 360°"],
+    ["Dashboard 4: Rendimiento", "Dashboard 6: Ficha 360°", "Dashboard 7: Matrícula y Alertas"],
 )
 
-if vista_sel == "Dashboard 4: Rendimiento":
+if vista_sel == "Dashboard 7: Matrícula y Alertas":
+    # Este dashboard abre sus propias tablas (datos reales) con leer_tabla().
+    render_dashboard_matricula()
+elif vista_sel == "Dashboard 4: Rendimiento":
     render_dashboard_rendimiento(df_calificaciones, df_condiciones)
 elif vista_sel == "Dashboard 6: Ficha 360°":
     render_dashboard_ficha360(df_calificaciones, df_condiciones)

@@ -116,7 +116,7 @@ erDiagram
     materia {
         int id_materia PK
         string materia
-        string nombre
+        string nombre_materia
         string fecha_exportacion
         datetime fecha_min
         datetime fecha_max
@@ -124,7 +124,7 @@ erDiagram
     aula {
         int id_aula PK
         string aula
-        int anio
+        int anio_aula
     }
     materia_aula {
         int id_materia_aula PK
@@ -331,7 +331,7 @@ El ejemplo es el primer valor no vacío de cada columna.
 |---|---|---|---|
 | PK | `id_materia` | int | 1 |
 |  | `materia` | string | algebra |
-|  | `nombre` | string | Álgebra |
+|  | `nombre_materia` | string | Álgebra |
 |  | `fecha_exportacion` | string | 24/10/2025 |
 |  | `fecha_min` | datetime | 2025-08-05 10:19:14 |
 |  | `fecha_max` | datetime | 2025-10-24 10:16:39 |
@@ -342,7 +342,7 @@ El ejemplo es el primer valor no vacío de cada columna.
 |---|---|---|---|
 | PK | `id_aula` | int | 1 |
 |  | `aula` | string | TUCD-MD-Algoritmos y Estructuras de Datos 2025 |
-|  | `anio` | int | 2025 |
+|  | `anio_aula` | int | 2025 |
 
 ### `materia_aula` (3 filas)
 
