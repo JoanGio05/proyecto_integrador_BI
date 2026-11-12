@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Proceso ETL del TFI: orígenes, transformaciones y cargas</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10pt; line-height: 1.42; color: #1c2430; margin: 0; }
+  h1 { font-size: 19pt; margin: 0 0 2mm 0; color: #14304f; }
+  h2 { font-size: 13pt; margin: 7mm 0 2.5mm 0; color: #14304f; border-bottom: 1.2pt solid #14304f; padding-bottom: 1mm; page-break-after: avoid; }
+  h3 { font-size: 10.5pt; margin: 4.5mm 0 1.5mm 0; color: #1f4a78; page-break-after: avoid; }
+  p { margin: 0 0 2.2mm 0; text-align: justify; }
+  .datos { color: #47525f; font-size: 9.5pt; margin-bottom: 5mm; }
+  .datos b { color: #1c2430; }
+  table { width: 100%; border-collapse: collapse; margin: 1.5mm 0 3.5mm 0; font-size: 8.8pt; page-break-inside: avoid; }
+  th { background: #14304f; color: #fff; text-align: left; padding: 1.6mm 2mm; font-weight: 600; }
+  td { border-bottom: 0.5pt solid #c9d1da; padding: 1.5mm 2mm; vertical-align: top; }
+  tr:nth-child(even) td { background: #f3f6f9; }
+  td.n, th.n { text-align: right; white-space: nowrap; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 8.6pt; background: #eef1f4; padding: 0 0.8mm; border-radius: 1mm; }
+  .flujo { display: flex; gap: 2mm; margin: 3mm 0 4mm 0; page-break-inside: avoid; }
+  .caja { flex: 1; border: 1pt solid #14304f; border-radius: 1.5mm; padding: 2.2mm 2.5mm; font-size: 8.8pt; }
+  .caja b { display: block; color: #14304f; font-size: 9.6pt; margin-bottom: 0.8mm; }
+  .flecha { align-self: center; font-size: 13pt; color: #14304f; }
+  .nota { border-left: 2.5pt solid #b7791f; background: #fbf5e8; padding: 2mm 3mm; margin: 2mm 0 3.5mm 0; font-size: 9.2pt; page-break-inside: avoid; }
+  ul { margin: 0 0 2.5mm 0; padding-left: 5mm; }
+  li { margin-bottom: 1mm; }
+</style>
+</head>
+<body>
+
+<h1>Proceso ETL: orígenes, transformaciones y cargas</h1>
+<div class="datos">
+  <b>Trabajo Final Integrador</b> · Business Intelligence &amp; Analytics · Herramienta de seguimiento académico sobre datos de un LMS<br>
+  <b>Responsable de datos y modelo:</b> Juan Manuel Gonzalez Kapnik · <b>Fecha:</b> 11/11/2026 · <b>Programa:</b> <code>cargar_datos.py</code>
+</div>
+
+<h2>1. Resumen</h2>
+<p>El proceso toma las planillas que exporta el campus virtual para cada materia, las limpia y las unifica, y deja un modelo dimensional listo para los siete dashboards. Se ejecuta con un solo comando, tarda alrededor de veinte segundos y no tiene nombres de materias escritos en el código: descubre qué hay recorriendo la carpeta de datos.</p>
+
+<div class="flujo">
+  <div class="caja"><b>Orígenes</b>26 planillas de Excel<br>4 tipos de fuente<br>3 materias</div>
+  <div class="flecha">&#9654;</div>
+  <div class="caja"><b>Extracción</b>Recorrido de la carpeta<br>Reconocimiento por prefijo<br>Detección del encabezado</div>
+  <div class="flecha">&#9654;</div>
+  <div class="caja"><b>Transformación</b>Limpieza y tipos<br>Columnas derivadas<br>Claves y dimensiones</div>
+  <div class="flecha">&#9654;</div>
+  <div class="caja"><b>Carga</b>13 tablas en CSV<br>4 de hechos, 8 dimensiones<br>y 1 tabla intermedia</div>
+</div>
+
+<p>Dos criterios guiaron todas las decisiones. El primero es <b>no descartar información</b>: las columnas originales se conservan y las transformadas se agregan al lado, y los perfiles que no son alumnos se mantienen marcados en lugar de eliminarse. El segundo es <b>la escalabilidad</b>: una materia nueva o una exportación actualizada se incorporan dejando los archivos en la carpeta, sin modificar el programa.</p>
+
+<h2>2. Orígenes</h2>
+<p>Los datos corresponden a una exportación del campus del 24/10/2025. Cada materia tiene su carpeta, y el padrón oficial está en una carpeta aparte con un archivo por materia.</p>
+
+<table>
+  <tr><th>Fuente</th><th>Qué contiene</th><th>Una fila es</th><th class="n">Archivos</th><th class="n">Filas leídas</th></tr>
+  <tr><td>Reporte de trazabilidad<br><code>reporte_trazabilidad_*</code></td><td>Fecha y hora, IP, usuario, aula, perfil, sección, acción y descripción de cada evento</td><td>Un clic o acceso</td><td class="n">3</td><td class="n">159.804</td></tr>
+  <tr><td>Reporte de participación<br><code>reporte_participacion_*</code></td><td>Avance, cantidad de interacciones, primera y última interacción, tiempo de uso, emails enviados y conteos por herramienta (foros, wikis, archivos, encuestas)</td><td>Un usuario en un aula</td><td class="n">3</td><td class="n">986</td></tr>
+  <tr><td>Calificaciones<br><code>calificaciones_alumnos_*</code></td><td>Nota y observación de cada alumno. El nombre del examen figura en los títulos del archivo</td><td>Un alumno en un examen</td><td class="n">17</td><td class="n">1.793</td></tr>
+  <tr><td>Padrón de matriculados<br>carpeta <code>Matriculados</code></td><td>Alumno, comisión, estado de la inscripción, instancia, fecha y número de transacción</td><td>Una inscripción</td><td class="n">3</td><td class="n">513</td></tr>
+</table>
+
+<h3>Particularidades de las planillas</h3>
+<ul>
+  <li><b>La tabla no empieza en la primera fila.</b> Arriba hay títulos con datos útiles: fecha de exportación, aula y nombre del examen.</li>
+  <li><b>El reporte de participación tiene el encabezado en dos filas</b> (por ejemplo "Foros" arriba y "Cantidad" abajo).</li>
+  <li><b>La nota incluye su máximo</b> en el mismo texto: <code>24.00/25.00</code>.</li>
+  <li><b>El nombre de algunos exámenes trae emojis</b> exportados como códigos (<code>&amp;#129504; PARCIAL 1</code>).</li>
+  <li><b>El tiempo de uso viene como texto</b> en horas y minutos (<code>28:54</code>).</li>
+  <li><b>El padrón trae apellido y nombre en una sola columna</b> y en mayúsculas, y usa "Identificación" donde las demás fuentes usan "Usuario".</li>
+  <li><b>Las fuentes incluyen usuarios que no son alumnos:</b> tutores, coordinadores e invitados.</li>
+</ul>
+
+<h2>3. Extracción</h2>
+<table>
+  <tr><th style="width:27%">Paso</th><th>Cómo se resuelve</th></tr>
+  <tr><td>Descubrir las materias</td><td>Cada subcarpeta de la carpeta de datos se toma como una materia. No hay nombres de materias en el código.</td></tr>
+  <tr><td>Reconocer cada archivo</td><td>El tipo se deduce del prefijo del nombre. Los archivos que no coinciden con ningún prefijo no se leen y quedan informados en el reporte de carga.</td></tr>
+  <tr><td>Encontrar la tabla</td><td>En lugar de suponer una fila fija, se busca la fila que contiene una columna conocida ("Usuario" o "Identificación"). Así se toleran planillas con más o menos títulos.</td></tr>
+  <tr><td>Aprovechar los títulos</td><td>Lo que está arriba del encabezado se guarda como metadatos: de ahí salen la fecha de exportación, el aula y el nombre del examen.</td></tr>
+  <tr><td>Unir encabezados dobles</td><td>Las dos filas se combinan en un solo nombre: "Foros" y "Cantidad" pasan a <code>foros_cantidad</code>.</td></tr>
+</table>
+
+<h2>4. Transformaciones</h2>
+
+<h3>Comunes a todas las fuentes</h3>
+<table>
+  <tr><th style="width:27%">Transformación</th><th>Detalle</th></tr>
+  <tr><td>Identificador de estudiante</td><td>Se quitan espacios y se pasa a mayúsculas. El formato <code>ALU_####</code> resultó igual en las cuatro fuentes, lo que permite cruzarlas. La carga avisa si aparece un alumno con otro formato.</td></tr>
+  <tr><td>Clave de materia</td><td>El nombre de la carpeta se pasa a minúsculas, sin tildes y con guiones bajos ("Probabilidad y Estadística" pasa a <code>probabilidad_y_estadistica</code>). Coincide con la clave del archivo de reglas de condición final.</td></tr>
+  <tr><td>Nombres de columnas</td><td>Minúsculas, sin tildes ni espacios.</td></tr>
+  <tr><td>Tipos de dato</td><td>Los textos de fecha se convierten a fecha (formato día/mes/año) y los conteos a número. Lo que no se puede convertir queda vacío en vez de frenar la carga.</td></tr>
+</table>
+
+<h3>Por fuente</h3>
+<table>
+  <tr><th style="width:17%">Fuente</th><th>Transformación</th><th style="width:30%">Resultado</th></tr>
+  <tr><td>Trazabilidad</td><td>Se eliminan las filas repetidas exactas y las que no tienen fecha válida. Se agrega la hora del día (0 a 23) para el mapa de calor.</td><td>686 duplicados descartados, ninguna fecha inválida. Quedan 159.118 eventos: 149.458 de alumnos y 9.660 de otros perfiles.</td></tr>
+  <tr><td>Participación</td><td>Se conserva una fila por usuario y aula. El tiempo de uso se convierte a minutos y a horas con decimales, manteniendo el texto original. El avance se pasa a número. Se agregan tres columnas de sí o no: tuvo actividad, envió emails, participó en foros.</td><td>986 filas: 957 de alumnos, 15 de invitados, 11 de tutores y 3 de coordinadores. Ningún usuario repetido.</td></tr>
+  <tr><td>Calificaciones</td><td>La nota se separa en puntaje y máximo, y se agrega el porcentaje. El nombre del examen se toma de los títulos, se limpia de emojis y se clasifica por las palabras que contiene (parcial, recuperatorio, autoevaluación, evaluación semanal, actividad).</td><td>1.793 notas de 17 exámenes. Ninguna sin valor numérico ni repetida.</td></tr>
+  <tr><td>Padrón</td><td>Apellido y nombre se separan. Se conservan todas las inscripciones de cada alumno, ordenadas por fecha, y se marcan la más reciente y la vigente.</td><td>513 inscripciones de 499 pares alumno y materia. 492 vigentes y 21 bajas.</td></tr>
+</table>
+
+<h3>Columnas agregadas</h3>
+<table>
+  <tr><th style="width:27%">Columna</th><th style="width:20%">Tabla</th><th>Cómo se calcula y para qué sirve</th></tr>
+  <tr><td><code>tiempo_uso_min</code>, <code>tiempo_uso_horas</code></td><td>participacion</td><td>Horas por 60 más minutos. El texto <code>28:54</code> no se puede sumar ni promediar; en minutos queda un entero exacto, la misma unidad de la regla de sesión.</td></tr>
+  <tr><td><code>avance_pct</code></td><td>participacion</td><td>El avance como número. Queda vacío donde el campus informa "no aplica" (los 29 usuarios que no son alumnos).</td></tr>
+  <tr><td><code>tuvo_actividad</code>, <code>envio_emails</code>, <code>participo_en_foros</code></td><td>participacion</td><td>Verdadero si el conteo correspondiente es mayor que cero. Permiten medir participación por canal.</td></tr>
+  <tr><td><code>nota_pct</code></td><td>calificaciones</td><td>Nota sobre máximo, por cien. Permite comparar materias que califican en escalas distintas.</td></tr>
+  <tr><td><code>hora</code></td><td>interacciones</td><td>Hora del evento, para la distribución temporal.</td></tr>
+  <tr><td><code>es_ultima_inscripcion</code>, <code>activo</code></td><td>matricula</td><td>La inscripción más reciente de cada alumno en la materia, y si además está aceptada. Para contar inscriptos vigentes se filtra por <code>activo</code>.</td></tr>
+  <tr><td><code>es_alumno</code></td><td>perfil, alumno</td><td>Verdadero para el perfil "Alumnos". Es el filtro por defecto al abrir las tablas.</td></tr>
+</table>
+
+<h3>Duplicados, nulos y registros inconsistentes</h3>
+<table>
+  <tr><th style="width:30%">Situación</th><th class="n" style="width:12%">Casos</th><th>Tratamiento</th></tr>
+  <tr><td>Eventos repetidos exactos en la trazabilidad</td><td class="n">686</td><td>Se descartan. Es el único caso en que se eliminan filas.</td></tr>
+  <tr><td>Usuarios que no son alumnos</td><td class="n">15 usuarios<br>9.660 eventos</td><td>Se conservan con su perfil. Las tablas se abren filtrando alumnos por defecto.</td></tr>
+  <tr><td>Alumnos con más de una inscripción</td><td class="n">14 filas</td><td>Se conservan como historial. Solo la más reciente puede quedar activa.</td></tr>
+  <tr><td>Alumnos del aula sin ninguna interacción</td><td class="n">140</td><td>Primera y última interacción quedan vacías y <code>tuvo_actividad</code> en falso. Es un dato válido: son inscriptos que nunca ingresaron.</td></tr>
+  <tr><td>Instancia vacía en el padrón</td><td class="n">21</td><td>Corresponde a las 21 bajas. Se deja vacía.</td></tr>
+  <tr><td>Correo electrónico</td><td class="n">334</td><td>La columna viene vacía para todos los usuarios. Se conserva.</td></tr>
+  <tr><td>Exámenes no rendidos</td><td class="n">no aplica</td><td>El campus no genera fila para quien no rindió. No se completan con cero en la carga: esa decisión corresponde a las reglas de condición final.</td></tr>
+  <tr><td>Notas mayores que el máximo, negativas o vacías</td><td class="n">0</td><td>Controlado, sin casos.</td></tr>
+  <tr><td>Eventos posteriores a la exportación o anteriores al alta</td><td class="n">0</td><td>Controlado, sin casos.</td></tr>
+</table>
+
+<h2>5. Carga</h2>
+<p>El resultado se escribe como archivos CSV en la carpeta de salida. El modelo es una constelación: cuatro tablas de hechos que comparten ocho dimensiones. Las tablas de hechos guardan claves y medidas; lo descriptivo está en las dimensiones. El diagrama entidad-relación y el diccionario de datos completo están en <code>docs/DER.md</code>.</p>
+
+<table>
+  <tr><th style="width:15%">Tabla</th><th style="width:9%">Tipo</th><th>Una fila es</th><th style="width:26%">Se relaciona con</th><th class="n" style="width:9%">Filas</th></tr>
+  <tr><td><code>interacciones</code></td><td>Hechos</td><td>Un clic o acceso</td><td>alumno, materia_aula, perfil, evento, fecha</td><td class="n">159.118</td></tr>
+  <tr><td><code>participacion</code></td><td>Hechos</td><td>El resumen de un usuario en un aula</td><td>alumno, materia_aula, perfil, fecha</td><td class="n">986</td></tr>
+  <tr><td><code>calificaciones</code></td><td>Hechos</td><td>La nota de un alumno en un examen</td><td>alumno, materia_aula, perfil, evaluacion</td><td class="n">1.793</td></tr>
+  <tr><td><code>matricula</code></td><td>Hechos</td><td>Una inscripción</td><td>alumno, materia, comision, fecha</td><td class="n">513</td></tr>
+  <tr><td><code>alumno</code></td><td>Dimensión</td><td>Un usuario del campus, con apellido y nombre</td><td></td><td class="n">334</td></tr>
+  <tr><td><code>materia</code></td><td>Dimensión</td><td>Una materia, con su rango de fechas de actividad</td><td></td><td class="n">3</td></tr>
+  <tr><td><code>aula</code></td><td>Dimensión</td><td>Un aula del campus</td><td></td><td class="n">3</td></tr>
+  <tr><td><code>materia_aula</code></td><td>Intermedia</td><td>Una combinación de materia y aula</td><td>materia, aula</td><td class="n">3</td></tr>
+  <tr><td><code>perfil</code></td><td>Dimensión</td><td>Alumnos, Tutores, Coordinadores, Invitados</td><td></td><td class="n">4</td></tr>
+  <tr><td><code>fecha</code></td><td>Dimensión</td><td>Un día, con semana, mes y día de la semana</td><td></td><td class="n">143</td></tr>
+  <tr><td><code>evento</code></td><td>Dimensión</td><td>Una combinación de sección y acción</td><td></td><td class="n">95</td></tr>
+  <tr><td><code>evaluacion</code></td><td>Dimensión</td><td>Un examen, con su tipo y categoría</td><td></td><td class="n">17</td></tr>
+  <tr><td><code>comision</code></td><td>Dimensión</td><td>Una comisión del padrón</td><td></td><td class="n">3</td></tr>
+</table>
+
+<h3>Decisiones de modelado</h3>
+<ul>
+  <li><b>Materia y aula se relacionan de muchos a muchos.</b> Una materia puede tener varias aulas y un aula puede compartirse. La tabla intermedia <code>materia_aula</code> tiene clave propia y dos claves foráneas; las tablas de hechos que ocurren en un aula apuntan a ella con una sola clave.</li>
+  <li><b>El padrón se relaciona con la materia y no con el aula,</b> porque el archivo de matriculados trae la comisión pero no el aula del campus.</li>
+  <li><b>Todas las tablas tienen un número propio como clave primaria,</b> salvo <code>alumno</code>, que usa el identificador del campus, y <code>fecha</code>, que usa el día. Aparte se controlan las combinaciones que no pueden repetirse (un alumno y un examen, un usuario y un aula, un número de transacción).</li>
+  <li><b>Una sola dimensión de fecha cumple tres papeles:</b> día de la interacción, día del alta en el aula y día de la inscripción.</li>
+  <li><b>El rango de fechas de cada materia se mide con la actividad de alumnos.</b> Los docentes ingresan desde el 04/06/2025, dos meses antes que los alumnos (05/08/2025), y desplazarían el inicio del selector de fecha de corte.</li>
+</ul>
+
+<h3>Lectura desde los dashboards</h3>
+<p>Las tablas se abren con la función <code>leer_tabla()</code>, que cruza cada tabla de hechos con sus dimensiones y devuelve una tabla plana. Por defecto devuelve solo alumnos; con <code>solo_alumnos=False</code> incluye los demás perfiles.</p>
+
+<h2>6. Controles y verificación</h2>
+<table>
+  <tr><th style="width:32%">Control</th><th>Resultado</th></tr>
+  <tr><td>Reporte de carga</td><td>En cada ejecución se genera <code>reporte_carga.txt</code> con las filas leídas, descartadas y finales de cada archivo, los archivos no reconocidos, las materias a las que les falta una fuente y los padrones sin materia. En la carga actual no hay avisos.</td></tr>
+  <tr><td>Claves primarias</td><td>Las 13 son únicas y sin valores vacíos.</td></tr>
+  <tr><td>Combinaciones que no se repiten</td><td>Las 4 se cumplen.</td></tr>
+  <tr><td>Integridad de las relaciones</td><td>Las 19 relaciones del modelo no tienen claves vacías ni sin destino.</td></tr>
+  <tr><td>Conservación de los datos</td><td>Filtrando alumnos, las cuatro tablas de hechos coinciden fila por fila con las de la primera versión de la carga.</td></tr>
+  <tr><td>Compatibilidad</td><td>El evaluador de condiciones del grupo corre sobre la tabla de calificaciones sin cambios y da el mismo resultado.</td></tr>
+  <tr><td>Escalabilidad</td><td>Una carpeta "Química General" copiada de Álgebra aparece como cuarta materia sin tocar el código, compartiendo el aula de Álgebra.</td></tr>
+</table>
+
+<h3>Configuración y ejecución</h3>
+<p>Las carpetas de entrada y de salida, el nombre del perfil de alumno y el estado que cuenta como inscripción vigente se leen de un archivo <code>.env</code>; si no existe, se usan los valores por defecto. El proceso se ejecuta con <code>python cargar_datos.py</code>.</p>
+
+<h2>7. Hallazgos sobre los datos</h2>
+<table>
+  <tr><th style="width:32%">Hallazgo</th><th>Detalle e implicancia</th></tr>
+  <tr><td>Los datos son una foto a mitad de cursada</td><td>Álgebra tiene 3 de sus 8 instrumentos, por lo que el puntaje máximo alcanzable a esa fecha es 45 de 120. Con los umbrales absolutos, los 196 alumnos con nota resultan libres. La condición final debe calcularse sobre lo evaluado hasta la fecha.</td></tr>
+  <tr><td>El aula tiene más alumnos que el padrón</td><td>Cada aula tiene 319 alumnos y entre 163 y 165 inscriptos vigentes. Por materia, entre 107 y 113 alumnos tienen actividad sin inscripción vigente y entre 39 y 54 tienen nota sin inscripción vigente. Es la base del dashboard de matrícula y alertas.</td></tr>
+  <tr><td>Inscriptos sin actividad</td><td>Entre 2 y 3 inscriptos vigentes por materia no registran ningún evento.</td></tr>
+  <tr><td>Participación y trazabilidad no coinciden</td><td>El reporte de participación informa más interacciones que las que figuran en la trazabilidad en 803 de 957 casos (33 de diferencia en la mediana). Los indicadores de actividad deben declarar de cuál de las dos fuentes provienen.</td></tr>
+  <tr><td>El recuperatorio de Probabilidad y Estadística no recupera un parcial</td><td>Corresponde a la Evaluación Semanal N.º 1. La regla de reemplazo debe contemplarlo.</td></tr>
+</table>
+
+<div class="nota"><b>Límite conocido.</b> Si la carpeta de datos no contiene ningún padrón, o ninguna materia tiene alguno de los tipos de archivo, la carga se interrumpe con un error en lugar de informar el faltante. Cuando la fuente falta solo en algunas materias, la carga se completa y lo avisa en el reporte.</div>
+
+</body>
+</html>
