@@ -7,27 +7,16 @@ QUÉ CONTESTA
       - quiénes están inscriptos y nunca entraron, o dejaron de entrar.
 
 CÓMO ESTÁ ARMADO
-    1. cargar_tablas()           abre las tablas que deja cargar_datos.py
-    2. situacion_matricula()     calcula, para cada alumno y materia, cómo estaba
-                                 a una fecha de corte (no usa Streamlit: se puede
-                                 probar sola)
-    3. render_dashboard_matricula()  dibuja la pantalla
-
-LA FECHA DE CORTE
-    Todo se calcula "a una fecha". Se miran solo las inscripciones y los clics
-    hasta ese día, así se puede ver cómo estaba la cursada en un momento pasado.
-    La excepción son las notas: el campus no informa la fecha de cada examen,
-    así que "tiene nota" siempre es a la fecha de exportación.
+    El cálculo de la situación de cada alumno a la fecha de corte está en
+    corte.py, que comparten todos los dashboards. Acá solo se arma la pantalla:
+      resumen_por_materia()          totales por materia
+      render_dashboard_matricula()   dibuja la pantalla
 """
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from cargar_datos import ESTADO_INSCRIPCION_ACTIVA, leer_tabla
-
-# Días sin entrar al aula a partir de los cuales un alumno cuenta como inactivo.
-# La cursada es semanal: 14 días equivalen a perderse dos clases seguidas.
-DIAS_INACTIVIDAD = 14
+from corte import cargar_tablas, filtros_corte, situacion_alumnos
 
 # Las cinco situaciones posibles de un alumno en una materia, en el orden en que
 # se muestran. El verde, el amarillo y el rojo quedan reservados para el semáforo
@@ -47,96 +36,6 @@ ALERTAS = {
     "alerta_inscripto_sin_actividad": "Inscriptos que nunca ingresaron",
     "alerta_inscripto_inactivo": "Inscriptos que dejaron de ingresar",
 }
-
-
-@st.cache_data
-def cargar_tablas():
-    """Abre las tablas una sola vez y las deja en memoria (st.cache_data)."""
-    tablas = {
-        "matricula": leer_tabla("matricula"),
-        "participacion": leer_tabla("participacion"),
-        "interacciones": leer_tabla("interacciones"),
-        "calificaciones": leer_tabla("calificaciones"),
-        "alumno": leer_tabla("alumno"),
-        "materia": leer_tabla("materia"),
-    }
-    # Los CSV traen las fechas como texto: se pasan a fecha para poder compararlas.
-    tablas["matricula"]["fecha_inscripcion"] = pd.to_datetime(tablas["matricula"]["fecha_inscripcion"])
-    tablas["participacion"]["fecha_alta"] = pd.to_datetime(tablas["participacion"]["fecha_alta"])
-    tablas["interacciones"]["fecha_hora"] = pd.to_datetime(tablas["interacciones"]["fecha_hora"])
-    for col in ("fecha_min", "fecha_max"):
-        tablas["materia"][col] = pd.to_datetime(tablas["materia"][col])
-    return tablas
-
-
-def situacion_matricula(tablas, fecha_corte, dias_inactividad=DIAS_INACTIVIDAD):
-    """Devuelve una fila por alumno y materia con su situación a la fecha de corte.
-
-    Ejemplo de una fila:
-        ALU_1001 | algebra | Inscripto | Activo | Inscripto activo | 3 días sin entrar
-    """
-    # El corte incluye el día entero: "24/10" quiere decir hasta las 23:59 del 24/10.
-    limite = pd.Timestamp(fecha_corte).normalize() + pd.Timedelta(days=1)
-    clave = ["id_alumno", "materia"]
-
-    # --- 1. Quiénes estaban en el aula a esa fecha (alta anterior al corte).
-    partic = tablas["participacion"]
-    en_aula = partic.loc[partic["fecha_alta"] < limite, clave].drop_duplicates()
-    en_aula["en_aula"] = True
-
-    # --- 2. Cómo estaba la inscripción de cada uno a esa fecha: de todas las
-    # inscripciones anteriores al corte, vale la más reciente.
-    matric = tablas["matricula"]
-    matric = matric[matric["fecha_inscripcion"] < limite].sort_values("fecha_inscripcion")
-    ultima = matric.drop_duplicates(clave, keep="last")
-    inscripcion = ultima[clave + ["estado_inscripcion", "fecha_inscripcion", "comision"]].copy()
-    inscripcion["inscripcion"] = inscripcion.pop("estado_inscripcion").map(
-        lambda estado: "Inscripto" if estado == ESTADO_INSCRIPCION_ACTIVA else "Baja"
-    )
-
-    # --- 3. Actividad hasta esa fecha: cantidad de clics y último ingreso.
-    traza = tablas["interacciones"]
-    traza = traza[traza["fecha_hora"] < limite]
-    actividad = traza.groupby(clave)["fecha_hora"].agg(interacciones="size", ultima_actividad="max").reset_index()
-
-    # --- 4. Quiénes tienen al menos una nota (sin fecha: ver el comentario de arriba).
-    con_nota = tablas["calificaciones"][clave].drop_duplicates()
-    con_nota["tiene_nota"] = True
-
-    # --- 5. Se junta todo. how="outer" conserva a quien figura en una sola fuente:
-    # el que está en el aula sin inscripción, y el inscripto que no está en el aula.
-    df = en_aula.merge(inscripcion, on=clave, how="outer")
-    df = df.merge(actividad, on=clave, how="left").merge(con_nota, on=clave, how="left")
-    df["en_aula"] = df["en_aula"].eq(True)
-    df["tiene_nota"] = df["tiene_nota"].eq(True)
-    df["inscripcion"] = df["inscripcion"].fillna("Sin inscripción")
-    df["interacciones"] = df["interacciones"].fillna(0).astype(int)
-
-    # --- 6. Estado de actividad: activo, inactivo o nunca ingresó.
-    df["dias_sin_actividad"] = (limite - df["ultima_actividad"]).dt.days
-    df["actividad"] = "Nunca ingresó"
-    df.loc[df["interacciones"] > 0, "actividad"] = "Inactivo"
-    df.loc[df["dias_sin_actividad"] <= dias_inactividad, "actividad"] = "Activo"
-
-    # --- 7. La situación combina inscripción y actividad.
-    inscripto = df["inscripcion"] == "Inscripto"
-    con_actividad = df["interacciones"] > 0
-    df["situacion"] = "En el aula, sin inscripción ni actividad"
-    df.loc[~inscripto & con_actividad, "situacion"] = "Con actividad sin inscripción"
-    df.loc[inscripto & (df["actividad"] == "Nunca ingresó"), "situacion"] = "Inscripto sin actividad"
-    df.loc[inscripto & (df["actividad"] == "Inactivo"), "situacion"] = "Inscripto inactivo"
-    df.loc[inscripto & (df["actividad"] == "Activo"), "situacion"] = "Inscripto activo"
-
-    # --- 8. Las alertas, cada una en su columna de sí o no.
-    df["alerta_actividad_sin_inscripcion"] = ~inscripto & con_actividad
-    df["alerta_nota_sin_inscripcion"] = ~inscripto & df["tiene_nota"]
-    df["alerta_inscripto_sin_actividad"] = inscripto & ~con_actividad
-    df["alerta_inscripto_inactivo"] = inscripto & (df["actividad"] == "Inactivo")
-
-    # --- 9. Nombre del alumno y de la materia, para mostrar.
-    df = df.merge(tablas["alumno"][["id_alumno", "apellido", "nombre"]], on="id_alumno", how="left")
-    df = df.merge(tablas["materia"][["materia", "nombre_materia"]], on="materia", how="left")
-    return df.sort_values(["nombre_materia", "apellido", "nombre"]).reset_index(drop=True)
 
 
 def resumen_por_materia(situacion):
@@ -163,23 +62,10 @@ def render_dashboard_matricula():
     )
 
     tablas = cargar_tablas()
-    materias = tablas["materia"]
-
-    # --- FILTROS (barra lateral) ---
-    st.sidebar.header("Filtros - Matrícula")
-    materia_sel = st.sidebar.selectbox("Materia", ["Todas"] + sorted(materias["nombre_materia"]))
-
-    # La fecha de corte se mueve entre el primer y el último día con actividad.
-    primer_dia, ultimo_dia = materias["fecha_min"].min().date(), materias["fecha_max"].max().date()
-    fecha_corte = st.sidebar.date_input(
-        "Fecha de corte", value=ultimo_dia, min_value=primer_dia, max_value=ultimo_dia, format="DD/MM/YYYY"
-    )
-    dias = st.sidebar.select_slider(
-        "Días sin ingresar para contar como inactivo", options=[7, 14, 21], value=DIAS_INACTIVIDAD
-    )
+    materia_sel, fecha_corte, dias = filtros_corte(tablas)
 
     # --- CÁLCULO ---
-    situacion = situacion_matricula(tablas, fecha_corte, dias)
+    situacion = situacion_alumnos(tablas, fecha_corte, dias)
     if materia_sel != "Todas":
         situacion = situacion[situacion["nombre_materia"] == materia_sel]
     resumen = resumen_por_materia(situacion)

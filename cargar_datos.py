@@ -731,9 +731,9 @@ def armar_estrella(modelo, materia, avisos):
         "nombre_mes": [MESES[m - 1] for m in dias.month],
         "semana": dias.isocalendar().week.to_numpy(),      # semana del año (norma ISO)
         "dia": dias.day,
-        "dia_semana": dias.dayofweek + 1,                  # lunes = 1 ... domingo = 7
-        "nombre_dia": [DIAS[d] for d in dias.dayofweek],
-        "es_fin_de_semana": dias.dayofweek >= 5,
+        "dia_semana": dias.day_of_week + 1,                  # lunes = 1 ... domingo = 7
+        "nombre_dia": [DIAS[d] for d in dias.day_of_week],
+        "es_fin_de_semana": dias.day_of_week >= 5,
     })
 
     # --- alumno: todos los IDs que aparecen en alguna fuente, sin repetir.
