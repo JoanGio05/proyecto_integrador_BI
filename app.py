@@ -1,7 +1,8 @@
-import pandas as pd
 import streamlit as st
 from presentacion_participacion import aplicar_navegacion
 
+from control_carga import validar_alumnos_matriculados
+from corte import cargar_tablas
 from dashboard_ficha360 import render_dashboard_ficha360
 from dashboard_general import render_dashboard_general
 from dashboard_matricula import render_dashboard_matricula
@@ -19,16 +20,34 @@ st.set_page_config(
     layout="wide",
 )
 
-# Cargar motor de reglas y datos mock
+# 1. Cargar reglas y tablas reales ya cruzadas y cacheadas desde corte.py
 reglas = cargar_reglas_json("reglas_materias.json")
-df_calificaciones = pd.read_csv("datos_mock.csv")
-df_condiciones, alertas = calcular_condiciones_estudiantes(df_calificaciones, reglas)
+tablas = cargar_tablas()
 
-# Mostrar las alertas del cálculo, si existen.
-for alerta in alertas:
-    st.warning(alerta)
+df_calificaciones = tablas["calificaciones"]
+df_participacion = tablas["participacion"]
+df_matricula = tablas["matricula"]
+df_interacciones = tablas["interacciones"]
 
-# Navegación
+# 2. Calcular condiciones académicas sobre las calificaciones reales
+df_condiciones, alertas_reglas = calcular_condiciones_estudiantes(
+    df_calificaciones, reglas, df_matricula=df_matricula
+)
+
+# Enriquecer df_condiciones con nombre_materia y nombre completo del alumno
+if not df_condiciones.empty:
+    alumnos_dim = tablas["alumno"][["id_alumno", "apellido", "nombre"]].copy()
+    alumnos_dim["nombre_completo"] = (
+        alumnos_dim["apellido"].fillna("") + ", " + alumnos_dim["nombre"].fillna("")
+    ).str.strip(", ")
+
+    materias_dim = tablas["materia"][["materia", "nombre_materia"]].drop_duplicates()
+
+    df_condiciones = df_condiciones.merge(
+        alumnos_dim[["id_alumno", "nombre_completo"]], on="id_alumno", how="left"
+    ).merge(materias_dim, on="materia", how="left")
+
+# 3. Navegación (se define primero para poder usar vista_sel en los avisos)
 aplicar_navegacion()
 st.sidebar.title("Seguimiento académico")
 st.sidebar.caption("Análisis del campus virtual")
@@ -46,7 +65,13 @@ vista_sel = st.sidebar.radio(
     label_visibility="collapsed", key="navegacion_vistas", width="stretch",
 )
 
-# Los dashboards 1 y 7 abren sus propias tablas (datos reales) desde corte.py.
+# 4. Validar consistencia entre calificaciones reales y padrón de matrícula
+df_matricula_activa = df_matricula[df_matricula["activo"] == True]
+df_no_matriculados, alertas_matricula = validar_alumnos_matriculados(
+    df_calificaciones, df_matricula_activa
+)
+
+# 5. Renderizado de la vista seleccionada
 if vista_sel == "Dashboard 1: General":
     render_dashboard_general()
 elif vista_sel == "Dashboard 2: Participación":
@@ -58,4 +83,10 @@ elif vista_sel == "Dashboard 7: Matrícula y Alertas":
 elif vista_sel == "Dashboard 4: Rendimiento":
     render_dashboard_rendimiento(df_calificaciones, df_condiciones)
 elif vista_sel == "Dashboard 6: Ficha 360°":
-    render_dashboard_ficha360(df_calificaciones, df_condiciones)
+    render_dashboard_ficha360(
+        df_calificaciones,
+        df_condiciones,
+        df_participacion,
+        df_interacciones,
+        df_matricula,
+    )
