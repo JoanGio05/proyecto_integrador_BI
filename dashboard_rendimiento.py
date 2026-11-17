@@ -2,12 +2,15 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+import estilo
+from corte import cargar_tablas, color_por_materia
+
 
 def render_dashboard_rendimiento(
     df_calificaciones: pd.DataFrame, df_condiciones: pd.DataFrame
 ):
     """Renderiza el Dashboard 4: Rendimiento Académico en Streamlit."""
-    st.title("📊 Dashboard 4: Rendimiento Académico")
+    st.title("Dashboard 4: Rendimiento Académico")
     st.markdown(
         "Análisis comparativo de calificaciones por evaluación, dispersión, asistencia y distribución de estados académicos."
     )
@@ -115,12 +118,12 @@ def render_dashboard_rendimiento(
     st.markdown("---")
 
     # --- MAPA DE COLORES INSTITUCIONAL (SEMÁFORO) ---
-    color_map = {
-        "promociona": "#2ca02c",
-        "regular": "#ff7f0e",
-        "libre": "#d62728",
-    }
-    orden_condiciones = ["promociona", "regular", "libre"]
+    # Los de la guía de estilo (estilo.py): iguales en todos los dashboards.
+    color_map = estilo.COLORES_CONDICION
+    orden_condiciones = estilo.ORDEN_CONDICION
+    # Cada materia con su color fijo, calculado sobre TODAS las materias (antes
+    # de filtrar), para que no cambie al elegir una sola.
+    colores_materia = color_por_materia(cargar_tablas())
 
     # --- FILA 1: DISTRIBUCIÓN GENERAL Y POR MATERIA ---
     col_chart1, col_chart2 = st.columns(2)
@@ -219,6 +222,7 @@ def render_dashboard_rendimiento(
             )
             fig_box = px.box(
                 df_calif_validas,
+                color_discrete_map=colores_materia,
                 x=col_eval,
                 y="nota_pct",
                 color=col_materia,
@@ -278,6 +282,7 @@ def render_dashboard_rendimiento(
         with col_ev1:
             fig_bar = px.bar(
                 df_eval,
+                color_discrete_map=colores_materia,
                 x=col_eval,
                 y="nota_promedio_pct",
                 color=col_materia,
@@ -297,6 +302,7 @@ def render_dashboard_rendimiento(
         with col_ev2:
             fig_asist = px.bar(
                 df_eval,
+                color_discrete_map=colores_materia,
                 x=col_eval,
                 y="asistencia_pct",
                 color=col_materia,
@@ -316,7 +322,7 @@ def render_dashboard_rendimiento(
         st.info("Sin registros de evaluaciones asociadas.")
 
     # --- TABLA DETALLADA ---
-    with st.expander("🔍 Explorar Padrón y Resultados Calculados"):
+    with st.expander("Explorar Padrón y Resultados Calculados"):
         cols_mostrar = [
             c
             for c in [

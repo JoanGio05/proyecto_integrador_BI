@@ -3,3 +3,5 @@ openpyxl
 streamlit
 plotly
 python-dotenv
+scipy        # correlación de Spearman (metricas.py, dashboard 5)
+kaleido      # solo para informe_datos.py: exporta las figuras del informe a PNG

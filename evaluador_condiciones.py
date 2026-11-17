@@ -3,6 +3,27 @@ import re
 import pandas as pd
 
 
+# Regla para una materia que todavía no tiene su fila en reglas_materias.json.
+# Así una materia nueva aparece con condición en todos los dashboards apenas se
+# carga, sin tocar nada. La nota se mide sobre lo tomado (puntos obtenidos ÷
+# puntos tomados), así que sirve para cualquier escala de notas. Regular con 60 %
+# y promoción con 85 %, como Álgebra y Probabilidad.
+# La app avisa qué materias la usan: para la regla de la cátedra, se agrega su fila.
+REGLA_POR_DEFECTO = {
+    "metodo_calculo": "suma",
+    "puntaje_maximo": 100.0,
+    "umbral_regular": 60.0,
+    "umbral_promocion": 85.0,
+    "tratamiento_recuperatorio": "ninguno",
+    "tratamiento_ausentes": "cero",
+}
+
+
+def regla_de(reglas_dict, materia):
+    """La regla de la materia, o REGLA_POR_DEFECTO si no tiene fila en el JSON."""
+    return reglas_dict.get(str(materia).strip().lower(), REGLA_POR_DEFECTO)
+
+
 def cargar_reglas_json(ruta_archivo="reglas_materias.json"):
     """Carga las reglas de evaluación desde un archivo JSON."""
     with open(ruta_archivo, "r", encoding="utf-8") as f:
@@ -276,10 +297,8 @@ def calcular_condiciones_estudiantes(
 
     for materia in materias_presentes:
         if materia not in reglas_dict:
-            alertas.append(f"Materia sin configuración: '{materia}'")
-            continue
-
-        regla = reglas_dict[materia]
+            alertas.append(f"Materia sin configuración: '{materia}' (se usa la regla por defecto)")
+        regla = regla_de(reglas_dict, materia)
         df_mat = df[df["materia"] == materia]
         tratamiento_recup = str(regla.get("tratamiento_recuperatorio", "")).strip().lower()
         evals_materia, clave_eval = _obtener_evaluaciones_base_materia(

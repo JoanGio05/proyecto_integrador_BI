@@ -55,7 +55,7 @@ def resumen_por_materia(situacion):
 
 def render_dashboard_matricula():
     """Dibuja el Dashboard 7: Matrícula y alertas en Streamlit."""
-    st.title("🚨 Dashboard 7: Matrícula y Alertas")
+    st.title("Dashboard 7: Matrícula y Alertas")
     st.markdown(
         "Contraste entre el padrón oficial y la actividad real en el aula: inscriptos, "
         "activos, alumnos que cursan sin estar inscriptos e inscriptos sin participación."

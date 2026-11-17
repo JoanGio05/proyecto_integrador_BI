@@ -90,7 +90,7 @@ def tendencia_semanal(clics):
 
 def render_dashboard_general():
     """Dibuja el Dashboard 1: General en Streamlit."""
-    st.title("🏠 Dashboard 1: General")
+    st.title("Dashboard 1: General")
     st.markdown(
         "Resumen de cada materia a la fecha elegida: alumnos activos e inactivos, "
         "rendimiento en los exámenes y tendencia de la participación."

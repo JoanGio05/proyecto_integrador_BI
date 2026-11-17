@@ -26,10 +26,14 @@ CÓMO SE USA DESDE UN DASHBOARD
     materia_sel, fecha_corte, dias = filtros_corte(tablas)
     situacion = situacion_alumnos(tablas, fecha_corte, dias)
 """
+import json
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 
-from cargar_datos import ESTADO_INSCRIPCION_ACTIVA, leer_tabla
+import estilo
+from cargar_datos import CARPETA_SALIDA, ESTADO_INSCRIPCION_ACTIVA, leer_tabla
 
 # Días sin entrar al aula a partir de los cuales un alumno cuenta como inactivo.
 # La cursada es semanal: 14 días equivalen a perderse dos clases seguidas.
@@ -44,9 +48,22 @@ COLORES_ACTIVIDAD = {
 }
 
 
-@st.cache_data
+def firma_datos():
+    """Nombre y fecha de modificación de cada tabla procesada.
+
+    Si cargar_datos.py vuelve a escribir las tablas (por ejemplo, al sumar una
+    materia), la firma cambia y cargar_tablas() las relee sin reiniciar la app.
+    """
+    return tuple(sorted((p.name, p.stat().st_mtime_ns) for p in Path(CARPETA_SALIDA).glob("*.csv")))
+
+
 def cargar_tablas():
     """Abre las tablas una sola vez y las deja en memoria (st.cache_data)."""
+    return _cargar_tablas(firma_datos())
+
+
+@st.cache_data
+def _cargar_tablas(firma):
     tablas = {
         "matricula": leer_tabla("matricula"),
         "participacion": leer_tabla("participacion"),
@@ -166,12 +183,42 @@ def situacion_alumnos(tablas, fecha_corte, dias_inactividad=DIAS_INACTIVIDAD):
 def color_por_materia(tablas):
     """Devuelve {"Álgebra": "#...", ...}: un color fijo para cada materia.
 
-    Los colores se reparten por orden alfabético de TODAS las materias, no solo
-    de las que se están mostrando: así cada materia conserva su color aunque se
-    filtre, y una materia nueva recibe el siguiente color sin tocar el código.
+    Los colores se reparten sobre TODAS las materias, no solo las que se están
+    mostrando: así cada materia conserva su color aunque se filtre.
+
+    Cada color queda anotado en colores_materias.json (junto a
+    reglas_materias.json) la primera vez que la materia aparece. Una materia nueva toma el primer color libre de
+    la paleta y las que ya estaban no cambian, se llame como se llame la nueva.
+    Si se borra una materia, su color queda reservado: al volver a cargarla
+    recupera el mismo.
+
+    El repositorio trae el archivo con las tres materias originales. Si faltara,
+    el orden es el del día en que empezó la cursada y, el mismo día, la clave
+    sin tildes: algebra, algoritmos..., probabilidad...
     """
-    # Violeta, naranja, celeste, rosa, marrón y gris azulado. No hay verde,
-    # amarillo ni rojo: esos tres son del semáforo de condición final.
-    paleta = ["#7b4ea3", "#e67e22", "#17becf", "#e377c2", "#8c564b", "#5d6d7e"]
-    nombres = sorted(tablas["materia"]["nombre_materia"])
-    return {nombre: paleta[i % len(paleta)] for i, nombre in enumerate(nombres)}
+    # La paleta es la de la guía de estilo (estilo.py): cinco colores validados
+    # para daltonismo, sin verde, amarillo ni rojo, que son del semáforo.
+    m = tablas["materia"]
+    m = (m.assign(_inicio=pd.to_datetime(m["fecha_min"]).dt.normalize())
+          .sort_values(["_inicio", "materia"]))
+    ruta = Path(__file__).with_name("colores_materias.json")
+    try:
+        asignados = json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        asignados = {}
+
+    paleta = estilo.PALETA_MATERIAS
+    nuevos = False
+    for clave in m["materia"]:
+        if clave not in asignados:
+            libres = [c for c in paleta if c not in asignados.values()]
+            # Con la paleta agotada (más de 5 materias) los colores se repiten.
+            asignados[clave] = libres[0] if libres else paleta[len(asignados) % len(paleta)]
+            nuevos = True
+    if nuevos:
+        try:
+            ruta.write_text(json.dumps(asignados, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            pass  # sin permiso de escritura: los colores valen igual para esta sesión
+
+    return {fila.nombre_materia: asignados[fila.materia] for fila in m.itertuples()}

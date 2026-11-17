@@ -1,0 +1,11 @@
+# Tema de Streamlit del TFI. Va en .streamlit/config.toml, al lado de app.py.
+# Hace que los botones, los filtros y los selectores usen el mismo azul que la
+# primera materia, y fija el fondo y el texto de la guía de estilo.
+
+[theme]
+base = "light"
+primaryColor = "#2a78d6"
+backgroundColor = "#fcfcfb"
+secondaryBackgroundColor = "#f1f0ed"
+textColor = "#0b0b0b"
+font = "sans serif"

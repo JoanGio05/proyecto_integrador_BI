@@ -3,6 +3,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+import estilo
+from corte import cargar_tablas, color_por_materia
+
 
 def render_dashboard_ficha360(
     df_calificaciones: pd.DataFrame,
@@ -12,7 +15,7 @@ def render_dashboard_ficha360(
     df_matricula: pd.DataFrame = None,
 ):
     """Renderiza el Dashboard 6: Ficha 360° del Alumno."""
-    st.title("👤 Dashboard 6: Ficha 360° del Estudiante")
+    st.title("Dashboard 6: Ficha 360° del Estudiante")
     st.markdown(
         "Vista consolidada individual de desempeño, benchmark contra el curso, matrícula y trazabilidad."
     )
@@ -20,6 +23,9 @@ def render_dashboard_ficha360(
     if df_condiciones.empty:
         st.warning("No hay datos de alumnos disponibles.")
         return
+
+    # Cada materia con su color fijo de la guía de estilo (estilo.py).
+    colores_materia = color_por_materia(cargar_tablas())
 
     # --- SELECCIÓN DE ALUMNO ---
     alumnos_lista = sorted(
@@ -57,7 +63,7 @@ def render_dashboard_ficha360(
     st.header(f"Ficha del Estudiante: {titulo}")
 
     # --- SEMÁFORO DE CONDICIONES POR MATERIA ---
-    st.subheader("🚥 Estado Académico (Semáforo)")
+    st.subheader("Estado Académico (Semáforo)")
     cols_materias = st.columns(max(len(df_alumno_cond), 1))
 
     color_emoji = {
@@ -94,7 +100,7 @@ def render_dashboard_ficha360(
 
     if not df_alumno_part.empty:
         st.markdown("---")
-        st.subheader("🌐 Participación en el Campus")
+        st.subheader("Participación en el Campus")
         p1, p2, p3, p4 = st.columns(4)
         p1.metric(
             "Interacciones Totales",
@@ -228,7 +234,7 @@ def render_dashboard_ficha360(
     df_benchmark["promedio_curso_pct"] = df_benchmark["promedio_curso_pct"].round(1)
 
     with col_izq:
-        st.subheader("📝 Calificaciones vs. Promedio del Curso")
+        st.subheader("Calificaciones vs. Promedio del Curso")
         if not df_alumno_calif.empty:
             df_plot_calif = df_alumno_calif.merge(
                 df_benchmark, on=["materia", eje_x], how="left"
@@ -238,6 +244,7 @@ def render_dashboard_ficha360(
                 x=eje_x,
                 y="nota_pct",
                 color=col_color,
+                color_discrete_map=colores_materia,
                 text="nota",
                 labels={
                     eje_x: "Evaluación",
@@ -262,7 +269,7 @@ def render_dashboard_ficha360(
             st.info("No hay registros de evaluaciones rendidas para este alumno.")
 
     with col_der:
-        st.subheader("📈 Progreso Académico Normalizado")
+        st.subheader("Progreso Académico Normalizado")
         if not df_alumno_cond.empty:
             theta_col = (
                 "nombre_materia"
@@ -325,7 +332,7 @@ def render_dashboard_ficha360(
         detalle_evals["nota_mostrada"] = detalle_evals["nota"].fillna(0.0)
         detalle_evals["nota_pct_mostrada"] = detalle_evals["nota_pct"].fillna(0.0)
 
-        st.subheader("📑 Detalle de Evaluaciones Tomadas (Incluyendo Ausentes)")
+        st.subheader("Detalle de Evaluaciones Tomadas (Incluyendo Ausentes)")
         cols_ver_eval = {
             "nombre_materia": "Materia",
             eje_x: "Evaluación",
@@ -350,7 +357,7 @@ def render_dashboard_ficha360(
         ].copy()
         if not df_alumno_inter.empty:
             st.markdown("---")
-            st.subheader("🖱️ Trazabilidad del Estudiante")
+            st.subheader("Trazabilidad del Estudiante")
             col_tr1, col_tr2 = st.columns(2)
 
             with col_tr1:
@@ -364,6 +371,7 @@ def render_dashboard_ficha360(
                     x="seccion",
                     y="cantidad",
                     color="nombre_materia",
+                    color_discrete_map=colores_materia,
                     barmode="group",
                     labels={
                         "seccion": "Sección del Campus",
@@ -393,6 +401,7 @@ def render_dashboard_ficha360(
                     x="semana",
                     y="cantidad",
                     color="nombre_materia",
+                    color_discrete_map=colores_materia,
                     markers=True,
                     labels={
                         "semana": "Semana (lunes)",
@@ -407,5 +416,5 @@ def render_dashboard_ficha360(
 
     # --- TABLA RESUMEN DEL ALUMNO ---
     st.markdown("---")
-    st.subheader("📋 Resumen Consolidado del Estudiante")
+    st.subheader("Resumen Consolidado del Estudiante")
     st.dataframe(df_alumno_cond, use_container_width=True, hide_index=True)
