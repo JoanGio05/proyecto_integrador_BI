@@ -1,0 +1,96 @@
+﻿id_evento,seccion,accion
+1,Archivos,Acceder
+2,Archivos,Agregar archivo
+3,Archivos,Eliminar archivo
+4,Archivos,Ver categoría
+5,Archivos,
+6,Busqueda,Buscar término
+7,Calendario,Acceder
+8,Calendario,Agregar evento
+9,Calendario,Eliminar evento
+10,Calendario,Exportar eventos
+11,Calendario,Visualizar anual
+12,Calendario,Visualizar diario
+13,Calendario,Visualizar evento
+14,Calendario,Visualizar lista
+15,Calendario,Visualizar mensual
+16,Calendario,Visualizar semanal
+17,Calificaciones,Acceder
+18,Calificaciones,Editar calificación
+19,Calificaciones,Exportar calificaciones (categoría)
+20,Calificaciones,Exportar calificaciones (todas)
+21,Calificaciones,Exportar notas
+22,Calificaciones,Ver calificaciones
+23,Calificaciones,Ver notas
+24,Calificaciones,Visualizar categorias
+25,Calificaciones,Visualizar lista
+26,Contactos,Acceder
+27,Contactos,Enviar mensaje
+28,Contactos,Enviar respuesta a todos
+29,Contactos,Reenviar mensaje
+30,Contactos,Visualizar grupos de trabajo
+31,Contactos,Visualizar perfiles
+32,Encuestas,Acceder
+33,Foros,Buscar
+34,Foros,Dar de alta un tema
+35,Foros,Responder
+36,Foros,Ver listado de categorias
+37,Foros,Ver listado de temas
+38,Foros,Ver tema
+39,Foros,
+40,Inicio,Acceder
+41,Mensajeria,Redactar mensaje
+42,Mensajeria,Reenviar mensaje
+43,Mensajeria,Responder mensaje
+44,Mensajeria,Responder mensaje a todos
+45,Noticias,Acceder
+46,Noticias,Agregar noticia
+47,Noticias,Ver categoría
+48,Noticias,Ver noticia
+49,Perfil usuario,Ver perfil
+50,Presentación,Acceder
+51,Presentación,Ver tópico
+52,Programa,Acceder
+53,Programa,Acceso a la edición de unidades
+54,Programa,Avances usuario
+55,Programa,Avances usuarios
+56,Programa,Avances usuarios por unidad
+57,Programa,Exportar avances usuarios
+58,Programa,Ver unidad
+59,Programa,Ver unidades
+60,Programa > Actividades,Acceder actividad
+61,Programa > Actividades,Previsualizar actividad
+62,Programa > Encuestas,Previsualizar encuesta
+63,Programa > Encuestas,Realizar encuesta
+64,Programa > Encuestas,Ver realizaciones
+65,Programa > Evaluaciones,Acceder
+66,Programa > Evaluaciones,Finalizar realizaci\x{F3}n
+67,Programa > Evaluaciones,Previsualizar evaluación
+68,Programa > Evaluaciones,Realizar evaluación
+69,Programa > Evaluaciones,Ver realizaciones
+70,Programa > Evaluaciones,Ver realización
+71,Programa > Evaluaciones,Visualizar evaluación
+72,Programa > Material de estudio,Descargar
+73,Programa > Material de estudio,Previsualizar
+74,Programa > Material de estudio,Ver archivo
+75,Programa > Material de estudio,Ver realizaciones
+76,Programa > Temas,Agregar intervencion
+77,Programa > Temas,Configurar tema
+78,Programa > Temas,Ver participacion
+79,Programa > Temas,Ver realizaciones
+80,Programa > Temas,Ver tema
+81,Programa > Temas,
+82,Programa > Textos,Ver realizaciones
+83,Programa > Textos,Ver texto
+84,Sitios,Acceder
+85,Sitios,Navegar sitio
+86,Sitios,Ver categoría
+87,Webmail,Acceder
+88,Webmail,Administrar etiquetas
+89,Webmail,Descargar adjunto
+90,Webmail,Mover a papelera
+91,Webmail,Restaurar mensajes
+92,Webmail,Ver enviados
+93,Webmail,Ver mensaje
+94,Webmail,Ver papelera
+95,Webmail,Ver recibidos

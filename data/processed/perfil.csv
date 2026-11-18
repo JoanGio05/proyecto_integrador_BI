@@ -1,0 +1,5 @@
+﻿id_perfil,perfil,es_alumno
+1,Alumnos,True
+2,Coordinadores,False
+3,Invitados,False
+4,Tutores,False
