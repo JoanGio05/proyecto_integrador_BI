@@ -66,8 +66,7 @@ vista_sel = st.sidebar.radio(
         "Dashboard 6: Ficha 360°",
         "Dashboard 7: Matrícula y Alertas",
     ],
-    format_func=lambda vista: vista.split(": ", 1)[-1],
-    label_visibility="collapsed", key="navegacion_vistas", width="stretch",
+    label_visibility="collapsed", key="navegacion_vistas",
 )
 
 # 4. Validar consistencia entre calificaciones reales y padrón de matrícula
